@@ -30,10 +30,11 @@
     padding: 12px;
   }
   .card {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: calc(18px * var(--scale));
-    padding: calc(12px * var(--scale)) calc(22px * var(--scale));
+    padding: calc(12px * var(--scale)) calc(22px * var(--scale)) calc(15px * var(--scale));
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: calc(10px * var(--scale));
@@ -58,6 +59,19 @@
   .session .neg { color: var(--loss); }
   body.no-session .session { display: none; }
   .status { font-size: calc(14px * var(--scale)); color: var(--muted); }
+  /* Author credit: tucked into the card's bottom-right corner, faint enough not to distract. */
+  .credit {
+    position: absolute;
+    right: calc(9px * var(--scale));
+    bottom: calc(3px * var(--scale));
+    font-size: calc(9px * var(--scale));
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    opacity: 0.45;
+    text-shadow: none;
+    pointer-events: none;
+  }
+  body.bare .credit { position: static; display: block; text-align: right; margin-top: calc(2px * var(--scale)); }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -72,6 +86,7 @@
       <div class="rating" id="rating" hidden>–</div>
       <div class="session" id="session" hidden></div>
       <div class="status" id="status">Waiting for the app…</div>
+      <div class="credit">by meattree0</div>
     </div>
   </div>
 <script>
