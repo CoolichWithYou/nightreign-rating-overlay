@@ -11,6 +11,7 @@ from collections.abc import Callable
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from nr_overlay import __version__
 from nr_overlay.i18n import normalize_language, tr
 from nr_overlay.save_reader import RatingSnapshot, SaveFormatError, find_save_files, read_rating
 from nr_overlay.server import OverlayServer
@@ -185,6 +186,7 @@ def _acquire_single_instance():
 
 def main() -> None:
     _setup_logging()
+    logger.info("Nightreign Rating Overlay %s starting", __version__)
     config = load_config()
     mutex = _acquire_single_instance()
     if mutex is None:

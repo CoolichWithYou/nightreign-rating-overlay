@@ -1,6 +1,6 @@
 [project]
 name = "nightreign-rating-overlay"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Tray app that shows the ELDEN RING NIGHTREIGN Deep of Night rating as an OBS overlay"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
@@ -19,6 +19,9 @@ nightreign-rating-overlay = "nr_overlay.app:main"
 [build-system]
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "nr_overlay.__version__" }
 
 [tool.setuptools.package-data]
 nr_overlay = ["static/*.html"]
