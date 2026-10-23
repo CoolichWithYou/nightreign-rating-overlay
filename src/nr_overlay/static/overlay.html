@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nightreign Rating</title>
+<!--
+  OBS browser source page. Query options:
+    ?lang=en|ru|zh  labels language (default: the language chosen in the tray app)
+    ?session=0      hide the per-stream line
+    ?bg=none        no card background, text only
+    ?scale=1.5      resize everything
+-->
+<style>
+  :root {
+    --scale: 1;
+    --text: #efe8ff;
+    --muted: #b3a6d9;
+    --accent: #a58bff;
+    --win: #7be0a1;
+    --loss: #ff7b8a;
+    --card: linear-gradient(135deg, rgba(20, 14, 44, 0.86), rgba(42, 24, 82, 0.86));
+    --border: rgba(165, 139, 255, 0.55);
+  }
+  html, body { margin: 0; background: transparent; }
+  body {
+    font-family: "Cinzel", "Trajan Pro", Georgia, "Times New Roman", "SimSun", "Microsoft YaHei", serif;
+    font-variant-numeric: lining-nums tabular-nums;
+    color: var(--text);
+    padding: 12px;
+  }
+  .card {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(18px * var(--scale));
+    padding: calc(12px * var(--scale)) calc(22px * var(--scale));
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: calc(10px * var(--scale));
+    box-shadow: 0 0 calc(18px * var(--scale)) rgba(110, 80, 220, 0.35);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  }
+  body.bare .card { background: none; border: none; box-shadow: none; padding: 0; }
+  .depth {
+    display: flex; flex-direction: column; align-items: center;
+    padding-right: calc(18px * var(--scale));
+    border-right: 1px solid var(--border);
+  }
+  body.bare .depth { border-right-color: transparent; }
+  .depth .label { font-size: calc(11px * var(--scale)); letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+  .depth .value { font-size: calc(34px * var(--scale)); line-height: 1.05; color: var(--accent); }
+  .main .title { font-size: calc(12px * var(--scale)); letter-spacing: 0.25em; color: var(--muted); text-transform: uppercase; }
+  .main .rating { font-size: calc(40px * var(--scale)); line-height: 1.05; transition: color 0.4s; }
+  .rating.up { color: var(--win); }
+  .rating.down { color: var(--loss); }
+  .session { font-size: calc(14px * var(--scale)); color: var(--muted); margin-top: calc(2px * var(--scale)); }
+  .session .pos { color: var(--win); }
+  .session .neg { color: var(--loss); }
+  body.no-session .session { display: none; }
+  .status { font-size: calc(14px * var(--scale)); color: var(--muted); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="depth" id="depthBox" hidden>
+      <span class="label" id="depthLabel">Depth</span>
+      <span class="value" id="depth">–</span>
+    </div>
+    <div class="main">
+      <div class="title" id="title">Deep of Night</div>
+      <div class="rating" id="rating" hidden>–</div>
+      <div class="session" id="session" hidden></div>
+      <div class="status" id="status">Waiting for the app…</div>
+    </div>
+  </div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const STRINGS = {
+    en: { depth: "Depth", title: "Deep of Night", stream: "this stream", w: "W", l: "L",
+          waiting: "Waiting for the app…", save_not_found: "Save not found", read_failed: "Save unavailable" },
+    ru: { depth: "Глубина", title: "Глубокая ночь", stream: "за стрим", w: "П", l: "Пр",
+          waiting: "Ожидание приложения…", save_not_found: "Сейв не найден", read_failed: "Сейв недоступен" },
+    zh: { depth: "深度", title: "深夜模式", stream: "本场", w: "胜", l: "负",
+          waiting: "正在等待程序…", save_not_found: "未找到存档", read_failed: "存档不可用" },
+  };
+  // ?lang= pins the language; otherwise follow the language picked in the tray app.
+  const pinnedLang = STRINGS[params.get("lang")] ? params.get("lang") : null;
+  let lang = null;
+  let T = STRINGS.en;
+
+  function applyLanguage(appLang) {
+    const next = pinnedLang || (STRINGS[appLang] ? appLang : lang || "en");
+    if (next === lang) return;
+    lang = next;
+    T = STRINGS[lang];
+    document.documentElement.lang = lang;
+    $("depthLabel").textContent = T.depth;
+    $("title").textContent = T.title;
+  }
+
+  document.documentElement.style.setProperty("--scale", parseFloat(params.get("scale")) || 1);
+  if (params.get("session") === "0") document.body.classList.add("no-session");
+  if (params.get("bg") === "none") document.body.classList.add("bare");
+
+  const $ = (id) => document.getElementById(id);
+  let shownRating = null;
+  let flashTimer = null;
+
+  function animateRating(target) {
+    const el = $("rating");
+    if (shownRating === null) { el.textContent = target; shownRating = target; return; }
+    if (target === shownRating) return;
+    el.classList.remove("up", "down");
+    el.classList.add(target > shownRating ? "up" : "down");
+    const from = shownRating, start = performance.now(), dur = 1200;
+    shownRating = target;
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / dur);
+      el.textContent = Math.round(from + (target - from) * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => el.classList.remove("up", "down"), 4000);
+  }
+
+  function render(s) {
+    applyLanguage(s.lang);
+    const hasData = s.ok;
+    $("depthBox").hidden = !hasData;
+    $("rating").hidden = !hasData;
+    $("session").hidden = !hasData;
+    $("status").hidden = hasData;
+    if (!hasData) { $("status").textContent = T[s.error] || T.waiting; return; }
+    $("depth").textContent = s.depth;
+    animateRating(s.rating);
+    const d = s.session.delta;
+    const cls = d > 0 ? "pos" : d < 0 ? "neg" : "";
+    $("session").innerHTML =
+      `<span class="${cls}">${d > 0 ? "+" : ""}${d}</span> ${T.stream} · ${s.session.wins}${T.w} / ${s.session.losses}${T.l}`;
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch("/api/state", { cache: "no-store" });
+      render(await res.json());
+    } catch {
+      render({ ok: false, error: null });
+    }
+    setTimeout(poll, 1000);
+  }
+  poll();
+</script>
+</body>
+</html>
