@@ -165,7 +165,11 @@ def _setup_logging() -> None:
     handlers: list[logging.Handler] = [handler]
     if sys.stderr is not None:  # absent in the windowed PyInstaller build
         handlers.append(logging.StreamHandler())
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", handlers=handlers)
+    # force: in the windowed build the root logger can already have a (useless) stderr handler,
+    # which would otherwise turn this call into a silent no-op.
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", handlers=handlers, force=True
+    )
 
 
 def _message_box(text: str) -> None:

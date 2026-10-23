@@ -35,7 +35,6 @@ EMPTY_ITEM_STATE_SIZE = 8
 PLAYER_NAME_GAP = 0x94  # between the last item state and the player name
 PLAYER_NAME_CHARS = 16
 RATING_OFFSET = 0x104  # relative to the player name
-DEPTH_INDEX_OFFSET = 0x10C  # 0-based depth, relative to the player name
 
 DEPTH_THRESHOLDS = (0, 1000, 2000, 4000, 6000)  # rating needed for depth 1..5
 MAX_SANE_RATING = 100_000
@@ -109,15 +108,13 @@ def parse_character_block(block: bytes, save_mtime: float = 0.0) -> RatingSnapsh
         name_at = find_player_name_offset(block)
         raw_name = block[name_at:name_at + PLAYER_NAME_CHARS * 2]
         (rating,) = struct.unpack_from("<I", block, name_at + RATING_OFFSET)
-        (depth_index,) = struct.unpack_from("<I", block, name_at + DEPTH_INDEX_OFFSET)
     except struct.error as e:
         raise SaveFormatError(f"character block is too short: {e}") from e
 
     name = raw_name.decode("utf-16-le", errors="ignore").split("\x00", 1)[0]
     if not name or rating > MAX_SANE_RATING:
         raise SaveFormatError("character block layout not recognised (game update?)")
-    depth = depth_index + 1 if depth_index < len(DEPTH_THRESHOLDS) else depth_for_rating(rating)
-    return RatingSnapshot(player_name=name, rating=rating, depth=depth, save_mtime=save_mtime)
+    return RatingSnapshot(player_name=name, rating=rating, depth=depth_for_rating(rating), save_mtime=save_mtime)
 
 
 def read_rating(path: Path, attempts: int = 5, retry_delay: float = 0.4) -> RatingSnapshot:

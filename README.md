@@ -40,8 +40,10 @@ There is no official API, so the rating is read from the local save
   has used since Dark Souls II (the first 16 bytes of an entry are the IV, an MD5 of the
   contents sits at the end);
 - entry 0 (`USER_DATA000`) is the character data. After 5120 item records and a 0x94 gap comes
-  the player name (UTF-16); the rating is a `uint32` at name + 0x104, the zero-based depth
-  is a `uint32` at name + 0x10C.
+  the player name (UTF-16); the rating is a `uint32` at name + 0x104. The depth is derived
+  from the rating: 1000 / 2000 / 4000 / 6000 points for depth 2 / 3 / 4 / 5.
+- entry 10 (`USER_DATA010`) also keeps a match history with the rating at the *start* of each
+  match; the app does not use it.
 
 The app checks the file every 1.5 s. When it changes, the app reads only the header and the
 character entry and verifies the MD5, so a half-written save is never shown.
@@ -58,6 +60,9 @@ This app never modifies the save.
 
 ## Limitations
 
+- The game does not write the new rating to the save the moment a match ends, only on its next
+  save: in testing that came a few minutes after the results screen. The overlay updates as soon
+  as that save lands; until then it shows the previous rating.
 - Wins and losses are counted from rating changes: a rise is a win, a drop is a loss. A loss
   that costs no points (depth 1, or the final day at depth 2) is not counted.
 - A game update may shift the save layout. The tray will then show "Could not read the save",

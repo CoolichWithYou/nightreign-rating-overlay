@@ -10,7 +10,7 @@ from nr_overlay import save_reader as sr
 BLOCK_SIZE = 0x30000
 
 
-def make_character_block(name: str, rating: int, depth_index: int, relics: int = 3) -> bytearray:
+def make_character_block(name: str, rating: int, relics: int = 3) -> bytearray:
     block = bytearray(BLOCK_SIZE)
     offset = sr.ITEM_STATES_OFFSET
     for i in range(relics):  # a few 80-byte relic states shift everything after them
@@ -19,7 +19,6 @@ def make_character_block(name: str, rating: int, depth_index: int, relics: int =
     offset += (sr.ITEM_STATE_SLOTS - relics) * sr.EMPTY_ITEM_STATE_SIZE + sr.PLAYER_NAME_GAP
     block[offset:offset + len(name) * 2] = name.encode("utf-16-le")
     struct.pack_into("<I", block, offset + sr.RATING_OFFSET, rating)
-    struct.pack_into("<I", block, offset + sr.DEPTH_INDEX_OFFSET, depth_index)
     checksum_at = len(block) - sr.CHECKSUM_TAIL
     block[checksum_at:checksum_at + 16] = hashlib.md5(block[4:checksum_at]).digest()
     return block
@@ -53,13 +52,13 @@ def save_file(tmp_path):
 
 
 def test_reads_rating_depth_and_name(save_file):
-    path = save_file(make_character_block("player", 1800, 1))
+    path = save_file(make_character_block("player", 1800))
     snap = sr.read_rating(path)
     assert (snap.player_name, snap.rating, snap.depth) == ("player", 1800, 2)
 
 
 def test_corrupted_block_is_rejected(save_file):
-    block = make_character_block("player", 2400, 2)
+    block = make_character_block("player", 2400)
     block[100] ^= 0xFF  # breaks the md5, as a half-written save would
     path = save_file(block)
     with pytest.raises(sr.SaveFormatError):
@@ -73,9 +72,10 @@ def test_not_a_save(tmp_path):
         sr.read_rating(path, attempts=1)
 
 
-def test_unknown_depth_index_falls_back_to_thresholds():
-    block = make_character_block("player", 4200, 99)
-    assert sr.parse_character_block(bytes(block)).depth == 4
+def test_depth_comes_from_rating_thresholds():
+    # after a day-1 loss at depth 2 the game wrote 1600 and the neighbouring field flipped to 0
+    snap = sr.parse_character_block(bytes(make_character_block("player", 1600)))
+    assert (snap.rating, snap.depth) == (1600, 2)
 
 
 @pytest.mark.parametrize("rating,depth", [(0, 1), (999, 1), (1000, 2), (3999, 3), (4000, 4), (6000, 5), (9000, 5)])
